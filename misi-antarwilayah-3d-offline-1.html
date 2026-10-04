@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Misi Antarwilayah 3D - Offline</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#08111f;font-family:Arial,sans-serif;color:#fff;touch-action:none;-webkit-user-select:none;user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud{position:fixed;top:8px;left:8px;right:58px;display:flex;gap:4px;z-index:3}
+.h{flex:1;min-width:0;white-space:nowrap;background:#0b1220dd;border:1px solid #64748b;border-radius:10px;padding:5px 7px;font-size:11px}
+.h b{display:block;font-size:17px}
+#mission{position:fixed;top:72px;left:8px;right:8px;max-width:520px;padding:8px 11px;background:#0b1220dd;border:1px solid #64748b;border-radius:11px;font-size:12px;line-height:1.35;z-index:3;pointer-events:none}
+#msg{position:fixed;left:50%;bottom:180px;transform:translateX(-50%);width:min(92%,520px);background:#0b1220ed;border:1px solid #38bdf8;border-radius:12px;padding:9px;text-align:center;font-size:12px;line-height:1.35;z-index:4;pointer-events:none}
+#joy{position:fixed;left:18px;bottom:20px;width:145px;height:145px;border-radius:50%;border:2px solid #94a3b8;background:#0b122088;z-index:5;touch-action:none}
+#stick{position:absolute;left:calc(50% - 30px);top:calc(50% - 30px);width:60px;height:60px;border-radius:50%;background:#38bdf899;border:2px solid #bae6fd;pointer-events:none}
+#buttons{position:fixed;right:10px;bottom:18px;width:calc(100vw - 185px);max-width:290px;display:grid;grid-template-columns:1fr 1fr;gap:7px;z-index:5}
+button{min-height:47px;border:1px solid #64748b;border-radius:11px;background:#0b1220e8;color:#fff;font-weight:bold;padding:6px 5px;font-size:12px;line-height:1.15;touch-action:manipulation;font-family:inherit}
+button:active{transform:scale(.96);background:#164e63}
+#start{position:fixed;inset:0;z-index:10;display:flex;padding:20px;background:#020617ee;overflow:auto;touch-action:pan-y}
+.card{margin:auto;max-width:500px;background:#111827;border:1px solid #475569;border-radius:20px;padding:23px;box-shadow:0 20px 70px #0009}
+.card h1{margin-top:0}.card p,.card li{color:#dbeafe;line-height:1.5}.card li{margin:7px 0}
+.card button{width:100%;margin-top:8px}.row{display:flex;gap:6px}.row button{flex:1}
+.sel,.pri{background:#0369a1!important;border-color:#38bdf8!important}.pri{font-size:16px}
+.sm{font-size:12px;color:#93c5fd;text-align:center;margin:6px 0 2px}
+.cc{background:#0b1220;border:1px solid #334155;border-radius:12px;padding:8px 10px;margin:7px 0;font-size:13px;line-height:1.4;color:#dbeafe}
+.st{font-size:34px;text-align:center;letter-spacing:6px}
+#mm{position:fixed;top:128px;right:8px;width:100px;height:86px;border:2px solid #64748b;border-radius:8px;z-index:3}
+#help{position:fixed;right:8px;top:8px;z-index:6;width:42px;min-width:42px;padding:0}
+#vehbadge{position:fixed;top:54px;right:8px;width:42px;text-align:center;font-size:20px;z-index:3;pointer-events:none;text-shadow:0 1px 4px #000}
+#goods{position:fixed;left:50%;bottom:180px;transform:translateX(-50%);width:min(94%,520px);background:#0b1220f5;border:1px solid #38bdf8;border-radius:14px;padding:10px;z-index:7;display:none}
+#goods.show{display:block}
+#goods .gh{font-size:12px;color:#93c5fd;text-align:center;margin-bottom:7px}
+#goods .g2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#goods button{background:#111827}
+#buttons button:nth-child(3){grid-column:1/3}
+@media (max-height:520px){.card{padding:14px}.card h1{font-size:20px}.card li{margin:3px 0;font-size:13px}.card p{margin:6px 0;font-size:13px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+ <div class="h">⭐ SKOR<b id="score">0</b></div>
+ <div class="h">📦 MISI<b id="missions">0/6</b></div>
+ <div class="h">💰 BIAYA<b id="cost">0</b></div>
+ <div class="h">⏱️ WAKTU<b id="time">120</b></div>
+</div>
+
+<div id="mission"><b>🎯 Misi:</b> Muat barang di wilayah surplus, antar ke wilayah yang membutuhkan lewat darat, sungai/laut, atau udara.</div>
+<div id="msg">Tekan MULAI GAME untuk bermain.</div>
+
+<div id="joy"><div id="stick"></div></div>
+
+<div id="buttons">
+ <button id="load">📦 Muat Barang</button>
+ <button id="deliver">🚚 Kirim Barang</button>
+ <button id="reset">↻ Ulangi</button>
+</div>
+
+<div id="goods"></div>
+
+<button id="help">☰</button>
+<div id="vehbadge">🚗</div>
+<canvas id="mm" width="100" height="86"></canvas>
+<div id="start"><div class="card" id="card"></div></div>
+
+<script>
+(()=>{"use strict";
+const $=id=>document.getElementById(id);
+const canvas=$("c"),ctx=canvas.getContext("2d");
+const scoreEl=$("score"),missionsEl=$("missions"),costEl=$("cost"),timeEl=$("time"),vehBadge=$("vehbadge");
+const msg=$("msg"),start=$("start"),joy=$("joy"),stick=$("stick"),goodsEl=$("goods");
+
+const TAU=Math.PI*2;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const CFG={camDist:9,camH:5,near:1,limX:120,limZ:100,radius:9,seaZ:-72,
+ riverHalf:4,riverEnd:22,bridgeHalfX:6,bridgeHalfZ:3,totalTime:120,target:6};
+const A={x:-48,z:14},B={x:56,z:-65};
+const ROADS=[[A.x,A.z,-6,0],[6,0,B.x,B.z],[A.x,A.z,-16,46],[-16,46,16,46],[16,46,B.x,B.z]];
+const BUILDINGS=[
+ {x:-51,z:20,w:5,h:8,color:"#16a34a",label:"WILAYAH A"},
+ {x:-45,z:20,w:4,h:5,color:"#15803d",label:"🌾"},
+ {x:A.x-9,z:A.z-7,w:3,h:3,color:"#78716c",label:"⛏️"},
+ {x:A.x+8,z:A.z-6,w:3,h:4,color:"#4d7c0f",label:"🧵"},
+ {x:A.x+1,z:A.z-11,w:3,h:3,color:"#365314",label:"🌳"},
+ {x:B.x-8,z:B.z+7,w:4,h:5,color:"#1d4ed8",label:"🏭"},
+ {x:B.x-2,z:B.z+7,w:5,h:8,color:"#2563eb",label:"WILAYAH B"},
+ {x:B.x-14,z:B.z+2,w:4,h:5,color:"#7c3aed",label:"🪑"},
+ {x:B.x+5,z:B.z+12,w:4,h:6,color:"#64748b",label:"🏗️"},
+ {x:B.x+12,z:B.z+4,w:3,h:4,color:"#0891b2",label:"🧶"},
+ {x:B.x+9,z:CFG.seaZ+4,w:3,h:3,color:"#78350f",label:"⚓"},
+ {x:0,z:95,w:5,h:10,color:"#475569",label:"BANDARA"},
+ {x:-11,z:83,w:4,h:3,color:"#334155",label:""},{x:11,z:83,w:4,h:3,color:"#334155",label:""},
+ {x:-70,z:-20,w:4,h:4,color:"#a16207",label:"Desa"},{x:-30,z:-40,w:4,h:4,color:"#b45309",label:""},
+ {x:-80,z:50,w:4,h:5,color:"#a16207",label:"Desa"},{x:85,z:40,w:5,h:9,color:"#475569",label:"Kota"},
+ {x:30,z:55,w:4,h:6,color:"#64748b",label:""},{x:-95,z:-55,w:4,h:4,color:"#b45309",label:"Desa"},
+ {x:-20,z:-62,w:3,h:3,color:"#78350f",label:"⚓"},{x:95,z:-30,w:4,h:5,color:"#a16207",label:"Desa"}
+];
+
+/* ---------- kendaraan ---------- */
+const VEH={
+ car:{label:"🚗 Mobil",domain:"land",maxFwd:10,maxRev:4,accel:76,turn:2.1,alt:0,emoji:"🚗"},
+ truck:{label:"🚚 Truk",domain:"land",maxFwd:7.5,maxRev:3,accel:58,turn:1.5,alt:0,emoji:"🚚",scale:1.15},
+ motor:{label:"🏍️ Motor",domain:"land",maxFwd:13,maxRev:5,accel:95,turn:3.1,alt:0,emoji:"🏍️",scale:.8},
+ boat:{label:"🚤 Perahu",domain:"water",maxFwd:9,maxRev:3,accel:60,turn:1.9,alt:0,emoji:"🚤",scale:1},
+ heli:{label:"🚁 Helikopter",domain:"air",maxFwd:11,maxRev:4,accel:70,turn:2.5,alt:2.1,emoji:"🚁",scale:1},
+ plane:{label:"✈️ Pesawat",domain:"air",maxFwd:19,maxRev:2,accel:48,turn:1.1,alt:3.2,emoji:"✈️",scale:1.1}
+};
+let vehId="car";
+try{const sv=localStorage.getItem("mab_veh");if(sv&&VEH[sv])vehId=sv}catch(_){}
+function spawnFor(id){
+ const d=VEH[id].domain;
+ if(d==="water")return{x:0,z:CFG.seaZ+6,ang:Math.PI};
+ if(d==="air")return{x:0,z:72,ang:0};
+ return{x:A.x,z:A.z,ang:Math.PI/2};
+}
+
+/* ---------- komoditas ---------- */
+const GOODS={
+ padi:{from:"A",emoji:"🌾",name:"Padi",why:"hasil pertanian dataran subur"},
+ kayu:{from:"A",emoji:"🌳",name:"Kayu",why:"hasil hutan"},
+ tambang:{from:"A",emoji:"⛏️",name:"Hasil Tambang",why:"kekayaan mineral"},
+ karet:{from:"A",emoji:"🧵",name:"Karet",why:"hasil perkebunan"},
+ pangan:{from:"B",emoji:"🍞",name:"Produk Pangan Olahan",why:"industri pengolahan pangan"},
+ mebel:{from:"B",emoji:"🪑",name:"Mebel & Kertas",why:"industri pengolahan kayu"},
+ logam:{from:"B",emoji:"🏗️",name:"Logam & Semen",why:"industri pengolahan tambang"},
+ tekstil:{from:"B",emoji:"🧶",name:"Tekstil & Ban",why:"industri pengolahan karet"}
+};
+const GOODS_A=["padi","kayu","tambang","karet"],GOODS_B=["pangan","mebel","logam","tekstil"];
+const deliveredTypes=new Set();
+function destOf(id){return GOODS[id].from==="A"?B:A}
+
+/* ---------- ukuran layar ---------- */
+let W=1,H=1,DPR=1,focal=1,horizon=1;
+function resize(){
+ W=Math.max(1,innerWidth);H=Math.max(1,innerHeight);DPR=Math.min(devicePixelRatio||1,2);
+ canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);
+ ctx.setTransform(DPR,0,0,DPR,0,0);
+ focal=Math.min(W,H)*.9;horizon=H*.39;
+}
+addEventListener("resize",resize);
+addEventListener("orientationchange",()=>setTimeout(resize,150));
+resize();
+
+/* ---------- state ---------- */
+const LV={easy:{n:"🟢 Mudah",t:240,g:4},normal:{n:"🟡 Normal",t:180,g:6},hard:{n:"🔴 Sulit",t:120,g:6}};
+let lv="normal",lastWin=false;
+let mode="idle"; // idle | playing | paused | ended
+let score=0,cost=0,missions=0,timeLeft=CFG.totalTime,cargo=null,route={mode:null},lastWarn=-1e9;
+const sp0=spawnFor(vehId);
+const player={x:sp0.x,z:sp0.z,ang:sp0.ang,speed:0};
+const joyState={active:false,id:null,x:0,y:0};
+const keys={};
+const trees=[];
+
+function setMsg(t){msg.innerHTML=t}
+function hud(){
+ scoreEl.textContent=score;missionsEl.textContent=missions+"/"+CFG.target;
+ costEl.textContent=cost;timeEl.textContent=Math.max(0,Math.ceil(timeLeft));
+ vehBadge.textContent=VEH[vehId].emoji;
+}
+function distSeg(px,pz,x1,z1,x2,z2){
+ const dx=x2-x1,dz=z2-z1,l2=dx*dx+dz*dz;
+ const t=l2?clamp(((px-x1)*dx+(pz-z1)*dz)/l2,0,1):0;
+ return Math.hypot(px-(x1+t*dx),pz-(z1+t*dz));
+}
+function okTree(x,z){
+ if(z<=CFG.seaZ+4)return false;
+ if(z>52&&Math.abs(x)<22)return false;
+ if(Math.abs(x)<9&&z<CFG.riverEnd+3)return false;
+ if(Math.hypot(x-A.x,z-A.z)<13||Math.hypot(x-B.x,z-B.z)<14)return false;
+ for(const r of ROADS)if(distSeg(x,z,r[0],r[1],r[2],r[3])<5)return false;
+ return true;
+}
+function makeTrees(){
+ trees.length=0;
+ for(let tries=0;trees.length<170&&tries<3000;tries++){
+  const x=-134+Math.random()*268,z=-108+Math.random()*216;
+  if(okTree(x,z))trees.push({x,z,s:.8+Math.random()*.6});
+ }
+}
+function resetState(){
+ CFG.totalTime=LV[lv].t;CFG.target=LV[lv].g;
+ score=0;cost=0;missions=0;timeLeft=CFG.totalTime;cargo=null;route={mode:null};
+ deliveredTypes.clear();
+ const sp=spawnFor(vehId);
+ player.x=sp.x;player.z=sp.z;player.ang=sp.ang;player.speed=0;
+ joyUp();closeGoods();hud();
+}
+function reset(){mode="idle";resetState();makeTrees();setMsg("Tekan <b>MULAI GAME</b> untuk bermain.")}
+function startGame(){
+ resetState();makeTrees();mode="playing";start.style.display="none";
+ setMsg("🚚 Mulai! <b>A</b> punya 4 bahan baku (padi, kayu, tambang, karet), <b>B</b> punya 4 produk industri. Dekati wilayah lalu tekan <b>Muat Barang</b> untuk memilih.");
+}
+function finish(win){
+ mode="ended";player.speed=0;hud();lastWin=win;saveBest();
+ setTimeout(()=>{if(mode==="ended")showMenu("end")},1300);
+ setMsg(win?"🏆 <b>MISI BERHASIL!</b><br>Skor "+score+" • "+missions+"/"+CFG.target+" pengiriman."
+  :"⏳ <b>WAKTU HABIS!</b><br>Skor "+score+" • "+missions+"/"+CFG.target+" pengiriman. Tekan ↻ untuk mencoba lagi.");
+}
+
+/* ---------- aturan game ---------- */
+function inSea(z){return z<=CFG.seaZ+1}
+function inRiver(x,z){return Math.abs(x)<CFG.riverHalf+.6&&z<CFG.riverEnd}
+function isWaterZone(x,z){return inRiver(x,z)||inSea(z)}
+function landBlocked(x,z){
+ if(inSea(z))return true;
+ return inRiver(x,z)&&Math.abs(z)>CFG.bridgeHalfZ-.5;
+}
+function getInput(){
+ let x=0,y=0;
+ if(joyState.active){x=joyState.x;y=joyState.y}
+ else{
+  if(keys.arrowleft||keys.a)x-=1;if(keys.arrowright||keys.d)x+=1;
+  if(keys.arrowup||keys.w)y-=1;if(keys.arrowdown||keys.s)y+=1;
+ }
+ return Math.hypot(x,y)<.12?{x:0,y:0}:{x,y};
+}
+function update(dt,now){
+ const V=VEH[vehId],inp=getInput(),f=-inp.y,p=player;
+ p.speed+=f*V.accel*dt;
+ p.speed*=Math.pow(.88,60*dt);
+ p.speed=clamp(p.speed,-V.maxRev,V.maxFwd);
+ const dir=p.speed<-.3?-1:1,grip=Math.min(1,Math.abs(p.speed)/4+.3);
+ p.ang+=inp.x*V.turn*grip*dir*dt;
+ if(p.ang>TAU||p.ang<-TAU)p.ang%=TAU;
+ let nx=clamp(p.x+Math.sin(p.ang)*p.speed*dt,-CFG.limX,CFG.limX);
+ let nz=clamp(p.z+Math.cos(p.ang)*p.speed*dt,-CFG.limZ,CFG.limZ);
+ if(V.domain==="land"&&landBlocked(nx,nz)){
+  if(!landBlocked(nx,p.z))nz=p.z;else if(!landBlocked(p.x,nz))nx=p.x;else{nx=p.x;nz=p.z}
+  if(Math.abs(p.speed)>2&&now-lastWarn>2500){lastWarn=now;setMsg("🌊 Ada air di depan! Lewati <b>jembatan</b>, ambil <b>jalur memutar</b>, atau ganti ke perahu/pesawat.")}
+  p.speed*=.5;
+ }else if(V.domain==="water"&&!isWaterZone(nx,nz)){
+  if(isWaterZone(nx,p.z))nx=p.x;else if(isWaterZone(p.x,nz))nz=p.z;else{nx=p.x;nz=p.z}
+  if(Math.abs(p.speed)>2&&now-lastWarn>2500){lastWarn=now;setMsg("🚧 Perahu hanya bisa berlayar di <b>sungai</b> atau <b>laut</b>.")}
+  p.speed*=.5;
+ }
+ p.x=nx;p.z=nz;
+ if(cargo&&V.domain==="land"){
+  if(Math.abs(p.x)<CFG.bridgeHalfX&&Math.abs(p.z)<CFG.bridgeHalfZ)route.mode="bridge";
+  else if(Math.abs(p.x)<CFG.riverHalf+.6&&p.z>=CFG.riverEnd)route.mode="detour";
+ }
+ timeLeft-=dt;
+ if(timeLeft<=0){timeLeft=0;finish(false)}
+}
+function notPlaying(){setMsg(mode==="ended"?"🏁 Permainan selesai. Tekan <b>↻ Ulangi</b> untuk main lagi.":"⚠️ Tekan <b>MULAI GAME</b> dulu.")}
+function near(st){return Math.hypot(player.x-st.x,player.z-st.z)<=CFG.radius}
+function closeGoods(){goodsEl.classList.remove("show");goodsEl.innerHTML=""}
+function openGoods(side){
+ const ids=side==="A"?GOODS_A:GOODS_B;
+ goodsEl.innerHTML='<div class="gh">📦 Pilih barang di Wilayah '+side+'</div><div class="g2">'+
+  ids.map(id=>'<button data-g="'+id+'">'+GOODS[id].emoji+' '+GOODS[id].name+'</button>').join("")+'</div>';
+ goodsEl.classList.add("show");
+}
+goodsEl.addEventListener("click",e=>{
+ const b=e.target.closest("[data-g]");if(!b)return;
+ const id=b.dataset.g,g=GOODS[id];
+ cargo=id;route={mode:null};closeGoods();
+ setMsg(g.emoji+" <b>"+g.name+"</b> dimuat dari Wilayah "+g.from+". Tujuan: <b>Wilayah "+(g.from==="A"?"B":"A")+"</b>.");
+});
+function loadBtn(){
+ if(mode!=="playing"){notPlaying();return}
+ if(cargo){setMsg("⚠️ Kirim dulu muatan yang sedang dibawa.");return}
+ if(near(A))openGoods("A");
+ else if(near(B))openGoods("B");
+ else setMsg("📍 Dekati <b>Wilayah A</b> (hijau) atau <b>Wilayah B</b> (biru) untuk memuat barang.");
+}
+function deliver(){
+ if(mode!=="playing"){notPlaying();return}
+ if(!cargo){setMsg("⚠️ Pilih barang terlebih dahulu lewat <b>Muat Barang</b>.");return}
+ const g=GOODS[cargo],dest=destOf(cargo),destName=g.from==="A"?"B":"A";
+ if(!near(dest)){setMsg("📍 Belum sampai tujuan. Menuju <b>Wilayah "+destName+"</b>.");return}
+ const V=VEH[vehId];
+ let pts=150,fee=40,concept="🤝 <b>Saling melengkapi:</b> "+g.why+" di Wilayah "+g.from+" memenuhi kebutuhan Wilayah "+destName+".";
+ if(V.domain==="air"){pts=260;fee=70;concept="✈️ <b>Kemudahan transfer:</b> transportasi udara memangkas waktu meski biayanya lebih tinggi."}
+ else if(V.domain==="water"){pts=240;fee=35;concept="🚤 <b>Kemudahan transfer:</b> jalur sungai dan laut membuka rute alternatif antarwilayah."}
+ else if(route.mode==="bridge"){pts=210;fee=55;concept="🌉 <b>Kemudahan transfer:</b> jembatan membuat perpindahan antarwilayah lebih mudah."}
+ else if(route.mode==="detour"){pts=230;fee=30;concept="🔀 <b>Kesempatan antara:</b> jalur alternatif dapat memengaruhi pola interaksi."}
+ let bonusMsg="";
+ if(!deliveredTypes.has(cargo)){deliveredTypes.add(cargo);pts+=20;bonusMsg="<br>🆕 Bonus variasi komoditas: +20!"}
+ score+=pts;cost+=fee;missions++;cargo=null;route={mode:null};hud();
+ setMsg(g.emoji+" "+g.name+" terkirim!<br>"+concept+bonusMsg+"<br>+"+pts+" poin.");
+ if(missions>=CFG.target)finish(true);
+}
+
+/* ---------- kamera & proyeksi (dengan pemotongan near-plane) ---------- */
+const cam={x:0,z:0,sin:0,cos:1};
+function setCam(){
+ cam.sin=Math.sin(player.ang);cam.cos=Math.cos(player.ang);
+ cam.x=player.x-cam.sin*CFG.camDist;cam.z=player.z-cam.cos*CFG.camDist;
+}
+function toCam(x,z){const dx=x-cam.x,dz=z-cam.z;return{rx:dx*cam.cos-dz*cam.sin,rz:dx*cam.sin+dz*cam.cos}}
+function scr(c){const s=focal/c.rz;return{x:W/2+c.rx*s,y:horizon+CFG.camH*s,s,z:c.rz}}
+function clipNear(pts){
+ const out=[],N=CFG.near;
+ for(let i=0;i<pts.length;i++){
+  const a=pts[i],b=pts[(i+1)%pts.length],ai=a.rz>=N,bi=b.rz>=N;
+  if(ai)out.push(a);
+  if(ai!==bi){const t=(N-a.rz)/(b.rz-a.rz);out.push({rx:a.rx+(b.rx-a.rx)*t,rz:N})}
+ }
+ return out;
+}
+function groundPoly(pts,fill){
+ const c=clipNear(pts.map(p=>toCam(p[0],p[1])));
+ if(c.length<3)return;
+ ctx.beginPath();
+ c.forEach((q,i)=>{const s=scr(q);if(i)ctx.lineTo(s.x,s.y);else ctx.moveTo(s.x,s.y)});
+ ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+}
+function groundLine(x1,z1,x2,z2){
+ let a=toCam(x1,z1),b=toCam(x2,z2);const N=CFG.near;
+ if(a.rz<N&&b.rz<N)return;
+ if(a.rz<N){const t=(N-a.rz)/(b.rz-a.rz);a={rx:a.rx+(b.rx-a.rx)*t,rz:N}}
+ else if(b.rz<N){const t=(N-b.rz)/(a.rz-b.rz);b={rx:b.rx+(a.rx-b.rx)*t,rz:N}}
+ const p=scr(a),q=scr(b);
+ ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
+}
+function rect(x1,z1,x2,z2,fill){groundPoly([[x1,z1],[x2,z1],[x2,z2],[x1,z2]],fill)}
+function roadQuad(x1,z1,x2,z2,w,fill){
+ const dx=x2-x1,dz=z2-z1,l=Math.hypot(dx,dz),ux=dx/l,uz=dz/l,e=w/2;
+ x1-=ux*e;z1-=uz*e;x2+=ux*e;z2+=uz*e;
+ const nx=-uz*w/2,nz=ux*w/2;
+ groundPoly([[x1+nx,z1+nz],[x2+nx,z2+nz],[x2-nx,z2-nz],[x1-nx,z1-nz]],fill);
+}
+function ring(st,r,color,lw){
+ ctx.strokeStyle=color;ctx.lineWidth=lw;
+ const n=40;
+ for(let i=0;i<n;i++){
+  const a1=i/n*TAU,a2=(i+1)/n*TAU;
+  groundLine(st.x+Math.cos(a1)*r,st.z+Math.sin(a1)*r,st.x+Math.cos(a2)*r,st.z+Math.sin(a2)*r);
+ }
+}
+
+/* ---------- gambar objek ---------- */
+function drawTree(s,k){
+ const u=s.s*k;if(u<1.2)return;
+ ctx.fillStyle="#78350f";ctx.fillRect(s.x-.25*u,s.y-1.8*u,.5*u,1.8*u);
+ ctx.fillStyle="#166534";ctx.beginPath();ctx.arc(s.x,s.y-3.3*u,1.6*u,0,TAU);ctx.fill();
+ ctx.fillStyle="#22803f";ctx.beginPath();ctx.arc(s.x-.3*u,s.y-3.6*u,1*u,0,TAU);ctx.fill();
+}
+function drawBuilding(s,b){
+ const u=s.s,w=b.w*u,h=b.h*u;if(u<.8)return;
+ ctx.fillStyle=b.color;ctx.fillRect(s.x-w/2,s.y-h,w,h);
+ ctx.fillStyle="#0f172a";ctx.fillRect(s.x-w/2-.2*u,s.y-h-.4*u,w+.4*u,.5*u);
+ const cols=Math.max(1,Math.floor(b.w/1.5)),rows=Math.max(1,Math.floor((b.h-1.5)/2));
+ for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+  ctx.fillRect(s.x-w/2+(c+.5)*(w/cols)-.35*u,s.y-h+1.2*u+r*2*u,.7*u,.9*u);
+ }
+ if(u>2&&b.label){
+  ctx.fillStyle="#fff";ctx.font="bold "+clamp(u*1.1,10,18)+"px Arial";ctx.textAlign="center";
+  ctx.fillText(b.label,s.x,s.y-h-.9*u);
+ }
+}
+function drawCar(s,tilt){
+ const u=s.s;
+ ctx.save();ctx.translate(s.x,s.y);ctx.rotate(tilt);
+ ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(0,0,1.6*u,.5*u,0,0,TAU);ctx.fill();
+ ctx.fillStyle="#111827";ctx.fillRect(-1.3*u,-.8*u,.55*u,.8*u);ctx.fillRect(.75*u,-.8*u,.55*u,.8*u);
+ ctx.fillStyle="#ef4444";ctx.fillRect(-1.2*u,-1.8*u,2.4*u,1.2*u);
+ ctx.fillStyle="#fee2e2";ctx.fillRect(-.9*u,-2.6*u,1.8*u,.85*u);
+ ctx.fillStyle="#fbbf24";ctx.fillRect(-1.1*u,-1.5*u,.4*u,.25*u);ctx.fillRect(.7*u,-1.5*u,.4*u,.25*u);
+ if(cargo){
+  ctx.font=clamp(1.3*u,14,60)+"px Arial";ctx.textAlign="center";ctx.fillStyle="#0f172a";
+  ctx.fillText(GOODS[cargo].emoji,0,-2.8*u);
+ }
+ ctx.restore();
+}
+function drawEmojiVeh(s,tilt,alt,emoji,scale){
+ const u=s.s;
+ ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(s.x,s.y,1.3*u,.42*u,0,0,TAU);ctx.fill();
+ const y=s.y-alt*u;
+ ctx.save();ctx.translate(s.x,y);ctx.rotate(tilt);
+ ctx.font=clamp(3*u*scale,15,100)+"px Arial";ctx.textAlign="center";ctx.textBaseline="middle";
+ ctx.fillText(emoji,0,0);
+ ctx.restore();
+ if(cargo){
+  ctx.font=clamp(1.2*u,13,45)+"px Arial";ctx.textAlign="center";ctx.fillStyle="#0f172a";
+  ctx.fillText(GOODS[cargo].emoji,s.x,y-2.4*u*scale);
+ }
+}
+function drawArrow(){
+ if(mode!=="playing"||!cargo)return;
+ const t=destOf(cargo),dx=t.x-player.x,dz=t.z-player.z;
+ let d=Math.atan2(dx,dz)-player.ang;d=Math.atan2(Math.sin(d),Math.cos(d));
+ const x=W-34,y=238;
+ ctx.save();ctx.translate(x,y);
+ ctx.fillStyle="#0b1220cc";ctx.beginPath();ctx.arc(0,0,25,0,TAU);ctx.fill();
+ ctx.rotate(d);ctx.fillStyle="#facc15";
+ ctx.beginPath();ctx.moveTo(0,-19);ctx.lineTo(12,12);ctx.lineTo(0,6);ctx.lineTo(-12,12);ctx.closePath();ctx.fill();
+ ctx.restore();
+ ctx.fillStyle="#fff";ctx.font="bold 12px Arial";ctx.textAlign="center";
+ ctx.fillText(Math.round(Math.hypot(dx,dz))+" m",x,y+40);
+}
+
+function render(now){
+ ctx.clearRect(0,0,W,H);setCam();
+ const g=ctx.createLinearGradient(0,0,0,horizon);g.addColorStop(0,"#38bdf8");g.addColorStop(1,"#bae6fd");
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,horizon+1);
+ ctx.fillStyle="#fde047";ctx.beginPath();ctx.arc(W*.8,horizon*.4,26,0,TAU);ctx.fill();
+ ctx.fillStyle="#65a30d";ctx.fillRect(0,horizon,W,H-horizon);
+
+ // grid tanah (bergerak sesuai dunia)
+ ctx.lineWidth=1;ctx.strokeStyle="rgba(190,242,100,.35)";
+ for(let x=-140;x<=140;x+=10)groundLine(x,-120,x,120);
+ for(let z=-120;z<=120;z+=10)groundLine(-140,z,140,z);
+
+ // laut di selatan
+ rect(-CFG.limX-25,-CFG.limZ-25,CFG.limX+25,CFG.seaZ+3,"#e8dca3");
+ rect(-CFG.limX-25,-CFG.limZ-25,CFG.limX+25,CFG.seaZ,"#0369a1");
+ // sungai (bermuara ke laut)
+ rect(-CFG.riverHalf-1,CFG.seaZ,CFG.riverHalf+1,CFG.riverEnd+1,"#d6c98a");
+ rect(-CFG.riverHalf,CFG.seaZ,CFG.riverHalf,CFG.riverEnd,"#0284c7");
+ // landasan bandara
+ rect(-16,54,16,96,"#334155");
+ ctx.strokeStyle="#facc15";ctx.lineWidth=1;
+ for(let z=56;z<94;z+=6)groundLine(0,z,0,Math.min(94,z+3));
+ // pad wilayah
+ rect(A.x-6,A.z-6,A.x+6,A.z+6,"rgba(34,197,94,.35)");
+ rect(B.x-6,B.z-6,B.x+6,B.z+6,"rgba(59,130,246,.35)");
+ // jalan
+ for(const r of ROADS)roadQuad(r[0],r[1],r[2],r[3],5,"#374151");
+ ctx.strokeStyle="#e2e8f0";ctx.lineWidth=2;
+ for(const r of ROADS){
+  const dx=r[2]-r[0],dz=r[3]-r[1],l=Math.hypot(dx,dz),ux=dx/l,uz=dz/l;
+  for(let d=0;d<l-2;d+=5)groundLine(r[0]+ux*d,r[1]+uz*d,r[0]+ux*Math.min(l,d+2.5),r[1]+uz*Math.min(l,d+2.5));
+ }
+ // jembatan
+ const bx=CFG.bridgeHalfX,bz=CFG.bridgeHalfZ;
+ rect(-bx,-bz,bx,bz,"#94a3b8");
+ rect(-bx,bz-.4,bx,bz,"#334155");rect(-bx,-bz,bx,-bz+.4,"#334155");
+ ctx.strokeStyle="#64748b";ctx.lineWidth=1;
+ for(let x=-bx+1;x<bx;x+=1.5)groundLine(x,-bz+.4,x,bz-.4);
+ // lingkaran muat/bongkar
+ ring(A,CFG.radius,"#22c55e",3);ring(B,CFG.radius,"#3b82f6",3);
+ if(cargo)ring(destOf(cargo),CFG.radius-.4,"#facc15",4);
+
+ // objek berdiri, diurutkan dari yang terjauh
+ const items=[];
+ for(const t of trees){
+  const c=toCam(t.x,t.z);if(c.rz<CFG.near+1||c.rz>170)continue;
+  const s=scr(c);if(s.x<-120||s.x>W+120)continue;
+  items.push({z:c.rz,d:()=>drawTree(s,t.s)});
+ }
+ for(const b of BUILDINGS){
+  const c=toCam(b.x,b.z);if(c.rz<CFG.near+1||c.rz>220)continue;
+  const s=scr(c);if(s.x<-250||s.x>W+250)continue;
+  items.push({z:c.rz,d:()=>drawBuilding(s,b)});
+ }
+ const vs=scr(toCam(player.x,player.z)),tilt=getInput().x*.08*(mode==="playing"?1:0),V=VEH[vehId];
+ items.push({z:vs.z,d:()=>{if(vehId==="car")drawCar(vs,tilt);else drawEmojiVeh(vs,tilt,V.alt,V.emoji,V.scale||1)}});
+ items.sort((a,b)=>b.z-a.z);
+ for(const it of items)it.d();
+ drawArrow();drawMini(now);
+}
+
+/* ---------- menu ---------- */
+const card=$("card"),mm=$("mm"),mc=mm.getContext("2d");
+const best=()=>{try{return+localStorage.getItem("mab_"+lv)||0}catch(_){return 0}};
+function saveBest(){try{if(score>best())localStorage.setItem("mab_"+lv,score)}catch(_){}}
+const bt=(a,t,c)=>'<button data-a="'+a+'" class="'+(c||"")+'">'+t+'</button>';
+function showMenu(pg){
+ let h="";const L=LV[lv];
+ if(pg==="main"){
+  h='<h1>🌍 Misi Antarwilayah 3D</h1><p>Simulasi kerja sama antarwilayah: <b>saling melengkapi</b>, <b>kesempatan antara</b>, dan <b>kemudahan transfer</b>.</p><div class="row">'+
+  Object.keys(LV).map(k=>bt("lv_"+k,LV[k].n,k===lv?"sel":"")).join("")+'</div><p class="sm">⏱️ '+L.t+' dtk • 📦 '+L.g+' pengiriman • 🏅 Rekor: '+best()+'</p>'+
+  bt("veh","🚐 Kendaraan: "+VEH[vehId].label)+
+  bt("play","▶ MULAI GAME","pri")+'<div class="row">'+bt("how","📖 Cara Bermain")+bt("concept","🧠 Konsep")+'</div>';
+ }else if(pg==="pause"){
+  h='<h1>⏸ Game Dijeda</h1><p class="sm">Skor '+score+' • Misi '+missions+'/'+CFG.target+'</p>'+bt("resume","▶ Lanjutkan","pri")+
+  bt("veh","🚐 Ganti Kendaraan: "+VEH[vehId].label)+'<div class="row">'+bt("play","↻ Ulangi")+bt("home","🏠 Menu")+'</div><div class="row">'+bt("how","📖 Cara")+bt("concept","🧠 Konsep")+'</div>';
+ }else if(pg==="end"){
+  const st=lastWin?(timeLeft>L.t*.4?3:2):(missions>=Math.ceil(L.g/2)?1:0);
+  h='<h1>'+(lastWin?"🏆 Misi Berhasil!":"⏳ Waktu Habis")+'</h1><div class="st">'+"⭐".repeat(st)+"☆".repeat(3-st)+'</div><div class="cc">Skor: <b>'+score+'</b><br>Pengiriman: <b>'+missions+'/'+CFG.target+'</b><br>Biaya: <b>'+cost+'</b> • Rekor '+L.n+': <b>'+best()+'</b></div>'+
+  bt("play","🔁 Main Lagi","pri")+bt("home","🏠 Menu Utama");
+ }else if(pg==="veh"){
+  h='<h1>🚐 Pilih Kendaraan</h1><p class="sm">Tiap moda beda kecepatan, lincah &amp; biaya perjalanan.</p>'+
+  '<p class="sm">🛣️ DARAT</p><div class="row">'+bt("veh_car",VEH.car.label,vehId==="car"?"sel":"")+bt("veh_truck",VEH.truck.label,vehId==="truck"?"sel":"")+bt("veh_motor",VEH.motor.label,vehId==="motor"?"sel":"")+'</div>'+
+  '<p class="sm">🌊 SUNGAI &amp; LAUT</p><div class="row">'+bt("veh_boat",VEH.boat.label,vehId==="boat"?"sel":"")+'</div>'+
+  '<p class="sm">☁️ UDARA</p><div class="row">'+bt("veh_heli",VEH.heli.label,vehId==="heli"?"sel":"")+bt("veh_plane",VEH.plane.label,vehId==="plane"?"sel":"")+'</div>'+
+  '<div class="cc">🚚 Truk kuat tapi lamban • 🏍️ Motor gesit &amp; cepat • 🚤 Perahu susuri sungai/laut • 🚁🛩️ Udara paling cepat &amp; langsung, tapi biaya lebih besar.</div>'+
+  bt("back","← Kembali","pri");
+ }else if(pg==="how"){
+  h='<h1>📖 Cara Bermain</h1><div class="cc">🕹️ Joystick untuk mengemudi (PC: panah/WASD).<br>📦 Dekati lingkaran <b>hijau (Wilayah A)</b> atau <b>biru (Wilayah B)</b>, lalu tekan <b>Muat Barang</b> untuk memilih salah satu dari 4 komoditas.<br>🌾🌳⛏️🧵 Wilayah A: padi, kayu, hasil tambang, karet.<br>🍞🪑🏗️🧶 Wilayah B: pangan olahan, mebel/kertas, logam/semen, tekstil/ban.<br>🚚 Antar ke wilayah tujuan (lingkaran kuning), tekan <b>Kirim Barang</b>.<br>🌊 Sungai/laut memblokir kendaraan darat: pakai 🌉 jembatan, jalur memutar, atau ganti ke 🚤 perahu/☁️ udara.<br>🚐 Ganti kendaraan kapan saja lewat menu jeda — muatan tetap terbawa.<br>🆕 Komoditas baru yang pertama kali diantar dapat bonus poin.<br>🗺️ Pantau minimap &amp; panah kuning.<br>⌨️ PC: E kirim, P jeda, R ulangi.</div>'+bt("back","← Kembali","pri");
+ }else{
+  h='<h1>🧠 Konsep Geografi</h1><div class="cc">🤝 <b>Saling melengkapi</b><br>Wilayah A (agraris: padi, kayu, tambang, karet) dan Wilayah B (industri: pangan, mebel, logam, tekstil) saling membutuhkan hasil satu sama lain.</div><div class="cc">🔀 <b>Kesempatan antara</b><br>Interaksi bisa beralih ke wilayah lain yang lebih mudah dijangkau.</div><div class="cc">🌉 <b>Kemudahan transfer</b><br>Jarak, biaya, dan moda transportasi (darat, sungai/laut, udara) memengaruhi perpindahan barang.</div>'+bt("back","← Kembali","pri");
+ }
+ card.innerHTML=h;start.style.display="flex";card.parentNode.scrollTop=0;
+}
+card.addEventListener("click",e=>{
+ const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
+ if(a==="play")startGame();
+ else if(a==="resume"){mode="playing";start.style.display="none"}
+ else if(a==="home"){mode="idle";resetState();showMenu("main")}
+ else if(a==="back")showMenu(mode==="paused"?"pause":"main");
+ else if(a==="veh")showMenu("veh");
+ else if(a.startsWith("lv_")){lv=a.slice(3);resetState();showMenu("main")}
+ else if(a.startsWith("veh_")){
+  vehId=a.slice(4);
+  try{localStorage.setItem("mab_veh",vehId)}catch(_){}
+  if(mode==="playing"||mode==="paused"){const sp=spawnFor(vehId);player.x=sp.x;player.z=sp.z;player.ang=sp.ang;player.speed=0;joyUp()}
+  hud();showMenu(mode==="paused"?"pause":"main");
+ }else showMenu(a);
+});
+function togglePause(){
+ if(mode==="playing"){mode="paused";joyUp();closeGoods();showMenu("pause")}
+ else if(mode==="paused"){mode="playing";start.style.display="none"}
+}
+const MW=100,MH=86,mx=x=>(x+CFG.limX)/(2*CFG.limX)*MW,my=z=>(CFG.limZ-z)/(2*CFG.limZ)*MH;
+function dot(p,c,r){mc.fillStyle=c;mc.beginPath();mc.arc(mx(p.x),my(p.z),r,0,TAU);mc.fill()}
+function drawMini(now){
+ mc.fillStyle="#4d7c0f";mc.fillRect(0,0,MW,MH);
+ mc.fillStyle="#334155";mc.fillRect(mx(-16),my(96),mx(16)-mx(-16),my(54)-my(96));
+ mc.fillStyle="#0369a1";mc.fillRect(0,my(CFG.seaZ),MW,MH-my(CFG.seaZ));
+ mc.fillStyle="#0284c7";mc.fillRect(mx(-4),my(CFG.riverEnd),mx(4)-mx(-4),my(CFG.seaZ)-my(CFG.riverEnd));
+ mc.strokeStyle="#cbd5e1";mc.lineWidth=1.2;
+ for(const r of ROADS){mc.beginPath();mc.moveTo(mx(r[0]),my(r[1]));mc.lineTo(mx(r[2]),my(r[3]));mc.stroke()}
+ mc.fillStyle="#94a3b8";mc.fillRect(mx(-6),my(3),mx(6)-mx(-6),my(-3)-my(3));
+ dot(A,"#22c55e",4);dot(B,"#3b82f6",4);
+ if(cargo&&Math.floor(now/350)%2)dot(destOf(cargo),"#facc15",6);
+ mc.save();mc.translate(mx(player.x),my(player.z));mc.rotate(player.ang);
+ mc.fillStyle="#ef4444";mc.strokeStyle="#fff";mc.beginPath();mc.moveTo(0,-5);mc.lineTo(3.5,4);mc.lineTo(-3.5,4);mc.closePath();mc.fill();mc.stroke();mc.restore();
+}
+
+/* ---------- loop ---------- */
+let last=0;
+function loop(t){
+ requestAnimationFrame(loop);
+ const dt=Math.min(.05,Math.max(0,(t-last)/1000)||0);last=t;
+ if(mode==="playing"){update(dt,t);if(mode==="playing")hud()}
+ render(t);
+}
+
+/* ---------- input ---------- */
+function joyMove(e){
+ const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,max=50;
+ let dx=e.clientX-cx,dy=e.clientY-cy;const l=Math.hypot(dx,dy);
+ if(l>max){dx*=max/l;dy*=max/l}
+ joyState.x=dx/max;joyState.y=dy/max;stick.style.transform="translate("+dx+"px,"+dy+"px)";
+}
+function joyUp(){joyState.active=false;joyState.id=null;joyState.x=0;joyState.y=0;stick.style.transform="translate(0,0)"}
+joy.addEventListener("pointerdown",e=>{
+ e.preventDefault();joyState.active=true;joyState.id=e.pointerId;
+ try{joy.setPointerCapture(e.pointerId)}catch(_){}
+ joyMove(e);
+});
+joy.addEventListener("pointermove",e=>{if(joyState.active&&e.pointerId===joyState.id)joyMove(e)});
+const joyEnd=e=>{if(e.pointerId===joyState.id)joyUp()};
+joy.addEventListener("pointerup",joyEnd);
+joy.addEventListener("pointercancel",joyEnd);
+joy.addEventListener("lostpointercapture",joyEnd);
+addEventListener("blur",()=>{joyUp();for(const k in keys)keys[k]=false});
+document.addEventListener("contextmenu",e=>e.preventDefault());
+
+addEventListener("keydown",e=>{
+ const k=e.key.toLowerCase();
+ if(k.startsWith("arrow"))e.preventDefault();
+ keys[k]=true;if(e.repeat)return;
+ if(k==="1"||k==="q")loadBtn();
+ else if(k==="e")deliver();else if(k==="p"||k==="escape")togglePause();else if(k==="r"&&mode!=="idle")startGame();
+});
+addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false});
+
+$("load").onclick=loadBtn;
+$("deliver").onclick=deliver;
+$("reset").onclick=startGame;
+$("help").onclick=()=>{if(mode==="playing"||mode==="paused")togglePause();else showMenu(mode==="ended"?"end":"how")};
+document.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>b.blur()));
+
+reset();showMenu("main");requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
